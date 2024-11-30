@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Run Terminal Command</title>
+    <script>
+        let eventSource = null;
+
+        function streamOutput(command, directory) {
+            if (eventSource) {
+                eventSource.close(); // Đóng kết nối cũ nếu có
+            }
+
+            eventSource = new EventSource(`/stream/${encodeURIComponent(directory)}/${encodeURIComponent(command)}`);
+            const outputDiv = document.getElementById("output");
+            outputDiv.innerHTML = ""; // Xóa kết quả cũ
+
+            eventSource.onmessage = function(event) {
+                const message = event.data;
+                outputDiv.innerHTML += message + "<br>";
+                outputDiv.scrollTop = outputDiv.scrollHeight; // Auto-scroll
+            };
+
+            eventSource.onerror = function() {
+                outputDiv.innerHTML += "<br><b>Stream ended or encountered an error.</b>";
+                eventSource.close();
+            };
+        }
+
+        function stopProcess() {
+            fetch("/stop", { method: "POST" })
+                .then(response => response.text())
+                .then(message => {
+                    document.getElementById("output").innerHTML += `<br><b>${message}</b>`;
+                    if (eventSource) {
+                        eventSource.close();
+                    }
+                })
+                .catch(error => console.error("Error stopping process:", error));
+        }
+    </script>
+</head>
+<body>
+    <h1>Run Terminal Command</h1>
+    <form onsubmit="event.preventDefault(); streamOutput(document.getElementById('command').value, document.getElementById('directory').value);">
+        <label for="command">Command:</label>
+        <input type="text" id="command" name="command" required>
+        <label for="directory">Directory:</label>
+        <input type="text" id="directory" name="directory" value="./" required>
+        <button type="submit">Run</button>
+    </form>
+    <button onclick="stopProcess()">Stop</button>
+
+    <h2>Output:</h2>
+    <div id="output" style="border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll;"></div>
+
+    <h2>Upload File</h2>
+    <form method="POST" action="/upload" enctype="multipart/form-data">
+        <label for="file">Select File:</label>
+        <input type="file" id="file" name="file" required>
+        <button type="submit">Upload</button>
+    </form>
+</body>
+</html>
+
